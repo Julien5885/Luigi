@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    android:orientation="vertical"
+    android:background="#000000">
+
+    <TextView
+        android:id="@+id/tvTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Titre du film"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="#ffffff"/>
+
+    <TextView
+        android:id="@+id/tvDescription"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Description du film"
+        android:textSize="18sp"
+        android:textColor="#ffffff"
+        android:layout_marginTop="10dp"/>
+
+    <TextView
+        android:id="@+id/tvReleaseYear"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Année de sortie"
+        android:textSize="18sp"
+        android:textColor="#ffffff"
+        android:layout_marginTop="10dp"/>
+
+    <TextView
+        android:id="@+id/tvRating"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Classification"
+        android:textSize="18sp"
+        android:textColor="#ffffff"
+        android:layout_marginTop="10dp"/>
+
+    <TextView
+        android:id="@+id/tvLength"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Durée"
+        android:textSize="18sp"
+        android:textColor="#ffffff"
+        android:layout_marginTop="10dp"/>
+
+
+    <Button
+        android:id="@+id/btnAjouterPanier"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Ajouter au Panier"
+        android:backgroundTint="#3ba51e"
+        android:textColor="#FFFFFF"
+        android:layout_marginTop="10dp"/>
+
+    <Button
+        android:id="@+id/btnRetour"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Retour"
+        android:backgroundTint="#FF0000"
+        android:textColor="#FFFFFF"
+        android:layout_marginTop="20dp"/>
+
+
+</LinearLayout>
