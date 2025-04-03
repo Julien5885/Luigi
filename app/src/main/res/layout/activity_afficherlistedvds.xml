@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Layout principal utilisant ConstraintLayout pour disposer les éléments -->
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -7,7 +9,10 @@
     android:padding="16dp"
     android:background="#000000">
 
-    <!-- Bouton en haut à droite de l'application -->
+    <!-- Bouton pour accéder au panier.
+         Il est positionné en haut à droite de l'écran.
+         Le texte affiche un emoji "🛒" suivi du mot "Panier".
+         La couleur de fond du bouton est définie avec un backgroundTint bleu (#2196F3). -->
     <Button
         android:id="@+id/btnNavigate"
         android:layout_width="wrap_content"
@@ -19,6 +24,9 @@
         android:layout_marginEnd="16dp"
         android:layout_marginTop="16dp"/>
 
+    <!-- Titre affiché en haut à gauche indiquant "Liste des DVD".
+         Il utilise un texte en blanc, en gras et en taille 24sp.
+         Il est positionné sur la même ligne que le bouton, mais sur la partie gauche. -->
     <TextView
         android:id="@+id/tvDvdList"
         android:layout_width="wrap_content"
@@ -32,6 +40,10 @@
         app:layout_constraintEnd_toStartOf="@id/btnNavigate"
         android:layout_marginTop="20dp"/>
 
+    <!-- ListView qui affichera la liste des DVD.
+         La largeur et la hauteur sont réglées à 0dp avec des contraintes de chaque côté pour occuper tout l'espace disponible.
+         Le séparateur (divider) est défini en blanc pour contraster avec le fond noir.
+         Le texte des items est forcé à blanc par défaut via l'attribut android:textColor (bien que ce soit généralement défini dans le layout de l'item) -->
     <ListView
         android:id="@+id/listView"
         android:layout_width="0dp"

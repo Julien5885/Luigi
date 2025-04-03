@@ -21,74 +21,90 @@ import java.net.URL;
 
 /**
  * Activité qui affiche la liste des DVD disponibles.
- * Les films sont récupérés via une API REST, placés dans un MatrixCursor,
- * et affichés dans une ListView via un SimpleCursorAdapter.
- * En cliquant sur un élément de la liste, l'utilisateur accède aux détails du film.
+ *
+ * Fonctionnement :
+ * - L'activité récupère l'URL du serveur (API) passée via l'intent.
+ * - Un bouton permet d'accéder au panier (PanierActivity).
+ * - Un MatrixCursor est créé pour stocker temporairement les données des films (id, titre, année de sortie).
+ * - Un SimpleCursorAdapter lie ces données au layout d'un item personnalisé (activity_afficherlisteitemsdvds.xml).
+ * - La ListView affiche la liste des DVD.
+ * - Un clic sur un item de la liste redirige l'utilisateur vers FilmDetailsActivity,
+ *   en transmettant l'id du film et l'URL du serveur.
+ * - Une AsyncTask est lancée pour effectuer un appel GET sur l'API et récupérer la liste complète des films,
+ *   que l'on ajoute ensuite au MatrixCursor et met à jour l'adaptateur.
  */
 public class AfficherListeDvdsActivity extends AppCompatActivity {
 
-    // Adaptateur qui lie le MatrixCursor aux vues de la ListView
+    // Adaptateur permettant de lier le MatrixCursor à la ListView
     private SimpleCursorAdapter adapter;
-    // MatrixCursor qui contiendra les données à afficher (_id, title, releaseYear)
+    // MatrixCursor qui stockera temporairement les données (id, titre, année) des DVD
     private MatrixCursor dvdCursor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Définition du layout pour cette activité
         setContentView(R.layout.activity_afficherlistedvds);
 
-        // Récupération de l'URL de l'API (ou du serveur) depuis l'intent
+        // Récupération de l'URL du serveur passé par l'activité précédente via l'intent
         String selectedURL = getIntent().getStringExtra("selectedURL");
 
-        // Bouton pour accéder au panier
+        // Configuration du bouton qui permet d'accéder au panier
         Button btnPanier = findViewById(R.id.btnNavigate);
         btnPanier.setOnClickListener(v -> {
-            // Lancement de l'activité PanierActivity en passant l'URL sélectionnée
+            // Lancement de l'activité PanierActivity en passant l'URL du serveur
             Intent intent = new Intent(this, PanierActivity.class);
             intent.putExtra("selectedURL", selectedURL);
             startActivity(intent);
         });
 
-        // Initialisation du MatrixCursor avec les colonnes attendues
+        // Initialisation du MatrixCursor avec les colonnes attendues (_id, title, releaseYear)
         dvdCursor = new MatrixCursor(new String[]{"_id", "title", "releaseYear"});
-        // Création de l'adaptateur pour lier le MatrixCursor au layout d'affichage des items
-        adapter = new SimpleCursorAdapter(this, R.layout.activity_afficherlisteitemsdvds,
-                dvdCursor, new String[]{"title", "releaseYear"}, new int[]{R.id.filmName, R.id.filmDate}, 0);
+        // Création du SimpleCursorAdapter qui liera le cursor au layout de chaque item de la liste
+        adapter = new SimpleCursorAdapter(
+                this,
+                R.layout.activity_afficherlisteitemsdvds, // Layout de chaque item
+                dvdCursor,
+                new String[]{"title", "releaseYear"}, // Colonnes à afficher
+                new int[]{R.id.filmName, R.id.filmDate}, // ID des TextView dans le layout d'item
+                0
+        );
 
-        // Récupération de la ListView et affectation de l'adaptateur
+        // Récupération de la ListView du layout et affectation de l'adaptateur
         ListView listviewDvds = findViewById(R.id.listView);
         listviewDvds.setAdapter(adapter);
 
-        // Définition du comportement lors du clic sur un élément de la liste
+        // Gestion du clic sur un élément de la liste
         listviewDvds.setOnItemClickListener((parent, view, position, id) -> {
+            // Déplacement du cursor à la position cliquée
             dvdCursor.moveToPosition(position);
             // Récupération de l'identifiant du film à partir de la colonne "_id"
             int filmId = dvdCursor.getInt(dvdCursor.getColumnIndex("_id"));
 
-            // Lancement de FilmDetailsActivity avec le filmId et l'URL
+            // Lancement de FilmDetailsActivity en passant l'identifiant du film et l'URL du serveur
             Intent intent = new Intent(this, FilmDetailsActivity.class);
             intent.putExtra("filmId", filmId);
             intent.putExtra("selectedURL", selectedURL);
             startActivity(intent);
         });
 
-        // Lancement de la tâche asynchrone pour récupérer la liste complète des films
+        // Lancement de la tâche asynchrone pour récupérer la liste complète des DVD via l'API REST
         new AppelerServiceRestGETAfficherListeDvdsTask().execute(selectedURL + "/toad/film/all");
     }
 
     /**
-     * Tâche asynchrone pour appeler l'API REST et récupérer la liste de tous les films.
-     * Le résultat est traité sous forme de JSONArray.
+     * AsyncTask qui se charge d'appeler l'API REST pour récupérer la liste complète des DVD.
+     * La réponse est lue sous forme de chaîne, convertie en JSONArray, puis chaque film est ajouté dans le MatrixCursor.
+     * Enfin, l'adaptateur est mis à jour pour afficher la liste dans la ListView.
      */
     private class AppelerServiceRestGETAfficherListeDvdsTask extends AsyncTask<String, Void, JSONArray> {
-
         @Override
         protected JSONArray doInBackground(String... urls) {
             String urlString = urls[0];
             StringBuilder result = new StringBuilder();
 
             try {
-                // Création de l'objet URL à partir de l'URL fournie
+                // Création de l'objet URL à partir de l'URL passée en paramètre
                 URL url = new URL(urlString);
                 HttpURLConnection connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
@@ -105,7 +121,7 @@ public class AfficherListeDvdsActivity extends AppCompatActivity {
 
                 Log.d("AppelerServiceRestGETAfficherListeDvdsTask", "Réponse reçue : " + result.toString());
 
-                // Conversion du résultat en JSONArray
+                // Conversion de la chaîne en JSONArray et retour du résultat
                 return new JSONArray(result.toString());
 
             } catch (Exception e) {
@@ -134,7 +150,7 @@ public class AfficherListeDvdsActivity extends AppCompatActivity {
                     String title = film.getString("title");
                     String annee = film.getString("releaseYear");
 
-                    // Ajout de la ligne dans le cursor
+                    // Ajout des données dans le MatrixCursor
                     dvdCursor.addRow(new Object[]{filmId, title, annee});
                     Log.d("AppelerServiceRestGETAfficherListeDvdsTask", "Ajout du film -> filmId: " + filmId + ", title: " + title + ", releaseYear: " + annee);
                 }

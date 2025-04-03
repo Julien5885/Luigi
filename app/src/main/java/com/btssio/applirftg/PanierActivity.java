@@ -22,26 +22,32 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Activité qui gère le panier de locations.
- * Pour chaque film présent dans le panier (stocké sous forme d'inventoryId) :
- * - Récupère l'objet Inventory pour obtenir le filmId.
- * - Récupère la durée de location (rental_duration) du film.
- * - Calcule la date de retour en fonction de la durée.
- * - Crée la location via un appel POST (le backend fixe return_date à null).
- * - Récupère le rental_id de la location créée et effectue un appel PUT pour mettre à jour le return_date.
+ * PanierActivity gère le processus d'enregistrement des locations pour les films ajoutés au panier.
+ *
+ * Pour chaque film (identifié par son inventoryId) présent dans le panier :
+ *  - On récupère l'objet Inventory afin d'obtenir le filmId associé.
+ *  - On récupère ensuite la durée de location (rental_duration) du film via une API.
+ *  - On calcule la date de retour en fonction de la durée de location.
+ *  - On crée la location en effectuant un appel POST à l'API.
+ *    (Le backend crée la location en fixant return_date à null lors de la création.)
+ *  - Ensuite, on récupère le rental_id généré et on effectue un appel PUT pour mettre à jour le return_date.
+ *  - Enfin, on relit la location (via GET) pour afficher un compte rendu avec la date de retour réellement enregistrée.
  */
 public class PanierActivity extends AppCompatActivity {
 
-    private ListView listViewPanier;
-    private Button btnRetour, btnValiderPanier;
-    private TextView tvPanierTitre;
-    private String selectedURL;
+    // Déclaration des éléments de l'interface
+    private ListView listViewPanier; // Liste pour afficher les titres des films dans le panier
+    private Button btnRetour, btnValiderPanier; // Boutons pour retourner à la liste des DVD et pour valider le panier
+    private TextView tvPanierTitre; // Titre affiché en haut de la vue
+    private String selectedURL; // URL de base du serveur/API
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Association de l'activité au layout activity_panier.xml
         setContentView(R.layout.activity_panier);
 
+        // Récupération de l'URL passée par l'activité précédente
         selectedURL = getIntent().getStringExtra("selectedURL");
         if (selectedURL == null || selectedURL.isEmpty()) {
             Toast.makeText(this, "URL non spécifiée, veuillez vous reconnecter.", Toast.LENGTH_SHORT).show();
@@ -49,13 +55,16 @@ public class PanierActivity extends AppCompatActivity {
             return;
         }
 
+        // Liaison des composants UI aux vues définies dans le layout
         listViewPanier = findViewById(R.id.listViewPanier);
         btnRetour = findViewById(R.id.btnRetour);
         btnValiderPanier = findViewById(R.id.btnValiderPanier);
         tvPanierTitre = findViewById(R.id.tvPanierTitre);
 
+        // Afficher les titres des films présents dans le panier
         afficherNomsFilms();
 
+        // Bouton "Retour" : permet de revenir à l'activité affichant la liste des DVD
         btnRetour.setOnClickListener(v -> {
             Intent intent = new Intent(PanierActivity.this, AfficherListeDvdsActivity.class);
             intent.putExtra("selectedURL", selectedURL);
@@ -63,6 +72,7 @@ public class PanierActivity extends AppCompatActivity {
             finish();
         });
 
+        // Bouton "Valider" : déclenche le processus d'enregistrement des locations
         btnValiderPanier.setOnClickListener(v -> {
             Log.i("PANIER", "Bouton Valider du panier cliqué");
             validerPanier();
@@ -71,17 +81,18 @@ public class PanierActivity extends AppCompatActivity {
 
     /**
      * Affiche les titres des films présents dans le panier.
-     * Le panier contient des inventoryId. Pour chaque inventoryId,
-     * on récupère l'objet Inventory afin d'extraire le filmId,
-     * puis on récupère le titre du film via l'API /toad/film/getById.
+     * Pour chaque inventoryId, on récupère l'objet Inventory afin d'extraire le filmId,
+     * puis on interroge l'API pour obtenir le titre du film.
      */
     private void afficherNomsFilms() {
         new Thread(() -> {
+            // Récupération de la liste des inventoryIds contenus dans le panier
             List<Integer> inventoryIds = Panier.getFilms();
             ArrayList<String> affichage = new ArrayList<>();
             if (inventoryIds.isEmpty()) {
                 affichage.add("Aucun film dans le panier.");
             } else {
+                // Pour chaque inventoryId, on récupère l'objet Inventory et le titre du film
                 for (int invId : inventoryIds) {
                     try {
                         JSONObject inventoryObj = getInventoryById(invId);
@@ -99,6 +110,7 @@ public class PanierActivity extends AppCompatActivity {
                     }
                 }
             }
+            // Mise à jour de la ListView sur le thread principal
             runOnUiThread(() -> {
                 ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, affichage);
                 listViewPanier.setAdapter(adapter);
@@ -107,7 +119,10 @@ public class PanierActivity extends AppCompatActivity {
     }
 
     /**
-     * Récupère le titre du film à partir de son filmId.
+     * Interroge l'API pour récupérer le titre du film à partir de son filmId.
+     * @param filmId l'identifiant du film.
+     * @return le titre du film.
+     * @throws Exception en cas d'erreur réseau ou de parsing.
      */
     private String getFilmTitle(int filmId) throws Exception {
         URL url = new URL(selectedURL + "/toad/film/getById?id=" + filmId);
@@ -122,7 +137,10 @@ public class PanierActivity extends AppCompatActivity {
     }
 
     /**
-     * Récupère l'objet Inventory en JSON pour un inventoryId donné.
+     * Interroge l'API pour récupérer l'objet Inventory associé à un inventoryId.
+     * @param inventoryId l'identifiant d'inventaire.
+     * @return un JSONObject représentant l'inventaire, ou null si introuvable.
+     * @throws Exception en cas d'erreur.
      */
     private JSONObject getInventoryById(int inventoryId) throws Exception {
         URL url = new URL(selectedURL + "/toad/inventory/getById?id=" + inventoryId);
@@ -145,62 +163,71 @@ public class PanierActivity extends AppCompatActivity {
     }
 
     /**
-     * Valide le panier en créant une location pour chaque inventoryId.
-     * Pour chaque location :
-     *  - Récupération de l'objet Inventory pour obtenir le filmId.
-     *  - Récupération de la durée de location (rental_duration) via l'API film.
-     *  - Calcul de la date de retour en fonction de la durée.
-     *  - Appel POST pour créer la location (le backend fixe return_date à null).
-     *  - Récupération du rental_id créé et appel PUT pour mettre à jour le return_date.
+     * Valide le panier en créant et mettant à jour les locations pour chaque film du panier.
+     * Pour chaque inventoryId :
+     *  - Récupère l'objet Inventory pour obtenir le filmId.
+     *  - Récupère la durée de location (rental_duration) via l'API du film.
+     *  - Calcule la date de retour en fonction de la durée.
+     *  - Effectue un POST pour créer la location (le backend fixe return_date à null).
+     *  - Récupère le rental_id créé et effectue un PUT pour mettre à jour le return_date.
+     *  - Affiche ensuite un compte rendu en relisant la location mise à jour.
      */
     private void validerPanier() {
         int customerId = 1;
         // Calcul de la date de location au format "yyyy-MM-dd"
         String dateLocation = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                 .format(System.currentTimeMillis());
-        Log.d("PANIER", "Date de location calculée: " + dateLocation);
+        Log.d("PANIER", "Date de location: " + dateLocation);
 
         new Thread(() -> {
+            // Pour chaque film présent dans le panier
             for (int inventoryId : Panier.getFilms()) {
                 try {
-                    // Récupérer l'objet Inventory pour obtenir le filmId
+                    // Récupération de l'objet Inventory pour obtenir le filmId
                     JSONObject inventoryObj = getInventoryById(inventoryId);
                     if (inventoryObj == null) {
                         Log.e("PANIER", "Inventory introuvable pour inventoryId=" + inventoryId);
                         continue;
                     }
                     int filmId = inventoryObj.getInt("filmId");
-                    Log.d("PANIER", "Traitement de inventoryId=" + inventoryId + " pour filmId=" + filmId);
+                    Log.d("PANIER", "Traitement inventoryId=" + inventoryId + " pour filmId=" + filmId);
 
-                    // Récupérer la durée de location (rental_duration) du film
+                    // Récupération de la durée de location pour ce film via l'API (rental_duration)
                     int rentalDuration = getFilmRentalDuration(filmId);
                     if (rentalDuration <= 0) {
-                        rentalDuration = 7; // Valeur par défaut si non spécifiée
+                        rentalDuration = 7; // Valeur par défaut en cas d'erreur
                     }
-                    Log.d("PANIER", "Rental duration pour filmId=" + filmId + " : " + rentalDuration + " jours");
+                    Log.d("PANIER", "Rental duration filmId=" + filmId + ": " + rentalDuration + " jours");
 
-                    // Calculer la date de retour en ajoutant rentalDuration jours à la date actuelle
+                    // Calcul de la date de retour en ajoutant rentalDuration jours à la date actuelle
                     long now = System.currentTimeMillis();
                     long returnMillis = now + rentalDuration * 24L * 60 * 60 * 1000;
                     String computedReturnDate = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                             .format(returnMillis);
-                    Log.d("PANIER", "Date de retour calculée pour inventoryId=" + inventoryId + " : " + computedReturnDate);
+                    Log.d("PANIER", "Date de retour calculée: " + computedReturnDate);
 
-                    // Créer la location (appel POST) et mettre à jour le return_date
+                    // Crée la location et met à jour return_date via POST et PUT
                     insererLocation(inventoryId, customerId, dateLocation, computedReturnDate);
-
                 } catch (Exception e) {
-                    Log.e("PANIER", "Erreur lors du traitement de inventoryId=" + inventoryId, e);
+                    Log.e("PANIER", "Erreur pour inventoryId=" + inventoryId, e);
                 }
             }
+            // Vider le panier après traitement
             Panier.vider();
-            runOnUiThread(() -> Toast.makeText(this, "Enregistrements réalisés !", Toast.LENGTH_LONG).show());
+            // Une fois le traitement terminé, afficher un Toast et lancer l'activité récapitulative
+            runOnUiThread(() -> {
+                Toast.makeText(PanierActivity.this, "Enregistrements réalisés !", Toast.LENGTH_LONG).show();
+                Intent intent = new Intent(PanierActivity.this, RecapitulatifActivity.class);
+                intent.putExtra("selectedURL", selectedURL);
+                startActivity(intent);
+            });
         }).start();
     }
 
     /**
-     * Récupère la durée de location (rental_duration) pour un film donné via l'API /toad/film/getById.
-     * On suppose que le JSON retourné contient un champ "rental_duration" (en jours).
+     * Récupère la durée de location (rental_duration) d'un film via l'API /toad/film/getById.
+     * @param filmId l'identifiant du film.
+     * @return la durée de location en jours.
      */
     private int getFilmRentalDuration(int filmId) {
         try {
@@ -213,20 +240,25 @@ public class PanierActivity extends AppCompatActivity {
             connection.disconnect();
             JSONObject json = new JSONObject(result);
             int duration = json.getInt("rental_duration");
-            Log.d("PANIER", "Durée récupérée pour filmId=" + filmId + " : " + duration);
+            Log.d("PANIER", "Durée filmId=" + filmId + ": " + duration);
             return duration;
         } catch (Exception e) {
-            Log.e("PANIER", "Erreur lors de la récupération de rental_duration pour filmId=" + filmId, e);
+            Log.e("PANIER", "Erreur rental_duration filmId=" + filmId, e);
             return -1;
         }
     }
 
     /**
-     * Crée la location via POST, récupère le rental_id créé et effectue une mise à jour (PUT)
-     * pour renseigner le return_date calculé.
+     * Crée la location via un POST, récupère le rental_id créé, effectue un PUT pour mettre à jour return_date,
+     * puis relit la location pour afficher le compte rendu.
+     *
+     * @param inventoryId L'identifiant d'inventaire du film.
+     * @param customerId L'identifiant du client.
+     * @param rentalDate La date de location (format yyyy-MM-dd).
+     * @param returnDate La date de retour calculée (format yyyy-MM-dd).
      */
     private void insererLocation(int inventoryId, int customerId, String rentalDate, String returnDate) throws Exception {
-        // Appel POST pour créer la location (le backend fixe return_date à null)
+        // Construction de l'URL pour l'appel POST ; le backend fixe return_date à null lors de la création
         String urlFinal = selectedURL
                 + "/toad/rental/add?rental_date=" + rentalDate
                 + "&inventory_id=" + inventoryId
@@ -234,31 +266,56 @@ public class PanierActivity extends AppCompatActivity {
                 + "&return_date=" + returnDate
                 + "&staff_id=1"
                 + "&last_update=" + rentalDate;
-        Log.d("PANIER", "Envoi POST pour créer la location: " + urlFinal);
-        URL url = new URL(urlFinal);
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        Log.d("PANIER", "POST location: " + urlFinal);
+        HttpURLConnection connection = (HttpURLConnection) new URL(urlFinal).openConnection();
         connection.setRequestMethod("POST");
         int postResponseCode = connection.getResponseCode();
-        Log.d("PANIER", "Code réponse POST: " + postResponseCode);
         connection.disconnect();
-        Log.i("PANIER", "Location insérée pour inventory ID: " + inventoryId);
+        Log.i("PANIER", "Location insérée pour inventoryId=" + inventoryId + ", code=" + postResponseCode);
 
-        // Récupérer le rental_id de la location créée
+        // Récupération du rental_id de la location créée via un GET sur l'ensemble des locations
         int rentalId = getRentalIdFor(inventoryId, customerId, rentalDate);
         if (rentalId != -1) {
-            Log.d("PANIER", "Rental_id trouvé: " + rentalId + " pour inventoryId=" + inventoryId);
-            // Appel PUT pour mettre à jour le return_date
+            Log.d("PANIER", "Rental_id trouvé: " + rentalId);
+            // Mise à jour du record avec la date de retour via un appel PUT
             updateRental(rentalId, rentalDate, inventoryId, customerId, returnDate, 1, rentalDate);
+
+            // Ajout du rentalId aux locations récentes de la session
+            SessionData.recentRentalIds.add(rentalId);
+
+            // Pause pour permettre au backend de finaliser la mise à jour
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            // Lancer une AsyncTask pour relire la location mise à jour et afficher le compte rendu
+            new AsyncTask<Integer, Void, String>() {
+                @Override
+                protected String doInBackground(Integer... params) {
+                    return getRentalById(params[0]);
+                }
+                @Override
+                protected void onPostExecute(String rentalInfo) {
+                    Toast.makeText(PanierActivity.this,
+                            "Location mise à jour : " + rentalInfo,
+                            Toast.LENGTH_LONG).show();
+                }
+            }.execute(rentalId);
         } else {
-            Log.e("PANIER", "Impossible de trouver le rental record pour inventory ID: " + inventoryId);
+            Log.e("PANIER", "Impossible de trouver la location pour inventoryId=" + inventoryId);
         }
     }
 
     /**
-     * Récupère le rental_id correspondant à une location créée en filtrant via
-     * inventoryId, customerId et rentalDate.
-     * Ici, on utilise les clés JSON telles que définies par le backend : "inventoryId", "customerId", "rentalDate", etc.
-     * On compare la date de location en coupant la chaîne à 10 caractères (format "yyyy-MM-dd").
+     * Recherche le rental_id d'une location en filtrant par inventoryId, customerId et rentalDate.
+     * La date de location est comparée sur la partie "yyyy-MM-dd" pour correspondre au format.
+     *
+     * @param inventoryId L'identifiant d'inventaire.
+     * @param customerId L'identifiant du client.
+     * @param rentalDate La date de location.
+     * @return Le rental_id trouvé, ou -1 si non trouvé.
      */
     private int getRentalIdFor(int inventoryId, int customerId, String rentalDate) {
         try {
@@ -266,45 +323,45 @@ public class PanierActivity extends AppCompatActivity {
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
             BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-            StringBuilder responseStr = new StringBuilder();
+            StringBuilder sb = new StringBuilder();
             String line;
             while ((line = reader.readLine()) != null) {
-                responseStr.append(line);
+                sb.append(line);
             }
             reader.close();
             connection.disconnect();
 
-            Log.d("PANIER", "Réponse GET /toad/rental/all: " + responseStr.toString());
+            Log.d("PANIER", "Réponse GET /toad/rental/all: " + sb.toString());
 
-            JSONArray array = new JSONArray(responseStr.toString());
+            JSONArray array = new JSONArray(sb.toString());
             for (int i = 0; i < array.length(); i++) {
                 JSONObject rental = array.getJSONObject(i);
-
-                // Utilisation des clés telles que fournies par le backend
                 int invId = rental.getInt("inventoryId");
                 int custId = rental.getInt("customerId");
                 String rentalDateInDb = rental.getString("rentalDate");
-                // Exemple : "2025-04-04 00:00:00.0"
-
-                // Conserver uniquement la partie date (yyyy-MM-dd)
                 if (rentalDateInDb != null && rentalDateInDb.length() >= 10) {
                     rentalDateInDb = rentalDateInDb.substring(0, 10);
                 }
-                Log.d("PANIER", "Vérification rental_id candidate: inventoryId=" + invId + ", customerId=" + custId + ", rentalDate=" + rentalDateInDb);
-
                 if (invId == inventoryId && custId == customerId && rentalDateInDb.equals(rentalDate)) {
-                    Log.d("PANIER", "Match trouvé pour rental_id: " + rental.getInt("rentalId"));
                     return rental.getInt("rentalId");
                 }
             }
         } catch (Exception e) {
-            Log.e("PANIER", "Erreur lors de la récupération du rental_id", e);
+            Log.e("PANIER", "Erreur getRentalIdFor", e);
         }
         return -1;
     }
 
     /**
-     * Appelle l'endpoint PUT pour mettre à jour la location et renseigner le return_date.
+     * Effectue un appel PUT pour mettre à jour la location (notamment le return_date).
+     *
+     * @param rentalId L'identifiant de la location à mettre à jour.
+     * @param rentalDate La date de location.
+     * @param inventoryId L'identifiant d'inventaire.
+     * @param customerId L'identifiant du client.
+     * @param returnDate La date de retour à mettre à jour.
+     * @param staffId L'identifiant du staff.
+     * @param lastUpdate La date de dernière mise à jour.
      */
     private void updateRental(int rentalId, String rentalDate, int inventoryId, int customerId,
                               String returnDate, int staffId, String lastUpdate) throws Exception {
@@ -315,12 +372,43 @@ public class PanierActivity extends AppCompatActivity {
                 + "&return_date=" + returnDate
                 + "&staff_id=" + staffId
                 + "&last_update=" + lastUpdate;
-        Log.d("PANIER", "Envoi PUT pour updateRental: " + urlFinal);
-        URL url = new URL(urlFinal);
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        Log.d("PANIER", "PUT location: " + urlFinal);
+        HttpURLConnection connection = (HttpURLConnection) new URL(urlFinal).openConnection();
         connection.setRequestMethod("PUT");
         int responseCode = connection.getResponseCode();
         connection.disconnect();
-        Log.i("PANIER", "Rental updated for rentalId: " + rentalId + ", response code: " + responseCode);
+        Log.i("PANIER", "PUT rentalId=" + rentalId + ", code=" + responseCode);
+    }
+
+    /**
+     * Relit la location via l'API et retourne un résumé contenant rentalId, rentalDate et returnDate.
+     *
+     * @param rentalId L'identifiant de la location.
+     * @return Une chaîne résumant la location ou un message d'erreur.
+     */
+    private String getRentalById(int rentalId) {
+        try {
+            URL url = new URL(selectedURL + "/toad/rental/getById?id=" + rentalId);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            int code = connection.getResponseCode();
+            if (code == 200) {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                String result = reader.readLine();
+                reader.close();
+                connection.disconnect();
+                JSONObject json = new JSONObject(result);
+                String dateRetour = json.optString("returnDate", "null");
+                return "RentalID=" + json.getInt("rentalId")
+                        + ", Date location=" + json.getString("rentalDate")
+                        + ", Date retour=" + dateRetour;
+            } else {
+                connection.disconnect();
+                return "Erreur GET rentalId=" + rentalId + ", code=" + code;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Exception GET rentalId=" + rentalId + " : " + e.getMessage();
+        }
     }
 }
