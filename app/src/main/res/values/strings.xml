@@ -5,6 +5,7 @@
         <item>http://192.168.8.80:8180</item>
         <item>http://10.0.2.2:8080</item>
         <item>http://10.0.2.2:8180</item>
+        <item>http://rftg.mtb111.com</item>
         <item>Autre (personnalisée)</item>
     </string-array>
 </resources>
